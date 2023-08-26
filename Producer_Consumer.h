@@ -1,72 +1,63 @@
 #pragma once
 #include <iostream>
-#include <thread>
 #include <mutex>
 #include <condition_variable>
+#include <thread>
 #include <deque>
+#include <atomic>
 
-const int DATA_NUM = 500;
+#define TOXIC -1
+const int MAX_DATA_NUM = 100;
+const int TASK_NUM = 200;
 
 template<typename T>
-class Resource
+struct Resource
 {
-public:
-    const int MAX_DATA_NUM = 100;
-    std::deque<T> data;
     std::mutex mut;
-    std::condition_variable not_empty;
     std::condition_variable not_full;
+    std::condition_variable not_empty;
+    std::deque<T> data;
 };
 
 template<typename T>
-void Producer(Resource<T>& resource)
+void Produce(Resource<T>& resource)
 {
-    static int d = 0;
+    for(int i = 0; i < TASK_NUM; ++i)
+    {
+        std::unique_lock<std::mutex> ulk(resource.mut);
+        resource.not_full.wait(ulk, [&resource](){return resource.data.size() < MAX_DATA_NUM;});
+        resource.data.push_back(i); //test
+        resource.not_empty.notify_all();
+    }
+    resource.data.push_back(TOXIC);
+}
+
+template<typename T>
+void Consume(Resource<T>& resource)
+{
     while(1)
     {
-        std::unique_lock<std::mutex> lk(resource.mut);
-        if(d >= DATA_NUM)
-            break;
-        resource.not_full.wait(lk, [&resource](){return resource.data.size() < resource.MAX_DATA_NUM;});
-        resource.data.push_back(d++);
-        std::cout << "Produced " << d << std::endl;
-        resource.not_empty.notify_one();
-
-    }
-}
-
-template<typename T>
-void Consumer(Resource<T>& resource)
-{
-    static int count = 0;
-    while (1)
-    {
-        std::unique_lock<std::mutex> lk(resource.mut);
-        if(count >= DATA_NUM)
-            break;
-        resource.not_empty.wait(lk, [&resource](){return !resource.data.empty();});
+        std::unique_lock<std::mutex> ulk(resource.mut);
+        resource.not_empty.wait(ulk, [&resource]{return resource.data.size() > 0;});
         T d = resource.data.front();
         resource.data.pop_front();
-        std::cout << "Consumed " << d << std::endl;
-        ++count;
-        resource.not_full.notify_one();
+        if(d != TOXIC)
+            std::cout << "Consumed " << d << std::endl;
+        else
+        {
+            std::cout << "Consumed TOXIC" << std::endl;
+            break;
+        }
+        resource.not_full.notify_all();
     }
 }
 
-class Tester
+void Test()
 {
-public:
-    void Test()
-    {
-        Resource<int> resource;
-        std::thread pro1(Producer<int>, std::ref(resource));
-        std::thread pro2(Producer<int>, std::ref(resource));
-        std::thread con1(Consumer<int>, std::ref(resource));
-        std::thread con2(Consumer<int>, std::ref(resource));
-        pro1.join();
-        pro2.join();
-        con1.join();
-        con2.join();
-    }
-};
-
+    Resource<int> r;
+    std::thread p(Produce<int>, std::ref(r));
+    std::thread c(Consume<int>, std::ref(r));
+    p.join();
+    c.join();
+    return;
+}

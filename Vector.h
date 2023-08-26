@@ -1,108 +1,110 @@
 #include <iostream>
-#include <cstring>
-#include <assert.h>
 
 template<typename T>
 class Vector
 {
 public:
     Vector() = default;
-
-    Vector(const size_t size, const T& val)
+    void swap(Vector& rhs)
     {
-        data_ = new T[size];
-        capacity_ = size_ = size;
-        for(size_t i = 0; i < size_; ++i)
-            data_[i] = T(val);
+        std::swap(rhs.data_, data_);
+        std::swap(rhs.size_, size_);
+        std::swap(rhs.capacity_, capacity_);
     }
-
+    size_t size()
+    {
+        return size_ - data_;
+    }
+    size_t capacity()
+    {
+        return capacity_ - data_;
+    }
     Vector(const Vector& rhs)
     {
-        if(this == &rhs)
-            return;
-        Vector tmp;
-        swap(tmp);
+        data_ = new T[rhs.capacity()];
+        memcpy(data_, rhs.data_, sizeof(T) * rhs.capacity_());
         size_ = rhs.size_;
         capacity_ = rhs.capacity_;
-        data_ = new T[capacity_];
-        std::memcpy(data_, rhs.data_, capacity_ * sizeof(T));
     }
-
     Vector(Vector&& rhs)
     {
         swap(rhs);
     }
-
     ~Vector()
     {
-        delete[](data_);
+        if(data_)
+            delete[] data_;
     }
-
     Vector& operator=(Vector rhs)
     {
         swap(rhs);
         return *this;
     }
-
     Vector& operator=(Vector&& rhs)
     {
         swap(rhs);
         return *this;
     }
-
-    void reserve(size_t n)
+    Vector(size_t num, const T& val)
     {
-        if(capacity_ < n)
+        data_ = new T[num];
+        for(size_t i = 0; i < num; ++i)
+            data_[i] = val;
+        size_ = data_ + num;
+        capacity_ = size_;
+    }
+    void reserve(size_t cap)
+    {
+        if(capacity() < cap)
         {
-            T* new_data = new T[n];
-            memcpy(new_data, data_, capacity_);
-            delete[] data_;
-            data_ = new_data;
-            capacity_ = n;
+            T* tmp = new T[cap];
+            size_t s = size();
+            if(data_)
+            {
+                memcpy(tmp, data_, capacity());
+                delete[] data_;
+            }
+            data_ = tmp;
+            size_ = data_ + s;
+            capacity_ = data_ + cap;
         }
     }
-
-    void resize(size_t n)
+    void resize(size_t s)
     {
-        if(capacity_ < n)
-            reserve(n);
-        if(size_ < n)
+        if(capacity() < s)
+            reserve(s);
+        if(size() < s)
         {
-            memset(data_ + size_, n - size_, 0);
+            while(size_ != data_ + s)
+            {
+                *size_ = T();
+                ++size_;
+            }
         }
-        size_ = n;
+        else
+            size_ = data_ + s;
     }
-
     void push_back(const T& val)
     {
         if(size_ == capacity_)
         {
-            size_t new_capacity = capacity_ == 0 ? 4 : 2 * capacity_;
-            reserve(new_capacity);
+            reserve(capacity_ == nullptr ? 4 : 2 * capacity());
         }
-        data_[size_++] = val;
+        *size_ = val;
+        ++size_;
     }
-
     void pop_back()
     {
-        assert(size_ > 0);
+        assert(size() > 0);
         --size_;
     }
-
-    T& operator[](size_t size)
+    T& operator[](size_t index)
     {
-        return data_[size];
+        assert(index >= 0 && index <= size());
+        return data_[index];
     }
-private:
-    void swap(Vector& rhs)
-    {
-        std::swap(data_, rhs.data_);
-        std::swap(size_, rhs.size_);
-        std::swap(capacity_, rhs.capacity_);
-    }
-
 private:
     T* data_ = nullptr;
-    size_t size_ = 0;
-    size_t capacity_ = 0;
+    T* size_ = nullptr;
+    T* capacity_ = nullptr;
 };

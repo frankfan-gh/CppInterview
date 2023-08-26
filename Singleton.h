@@ -1,57 +1,53 @@
-#ifndef SINGLETON_H
-#define SINGLETON_H
-
+#include <iostream>
 #include <mutex>
 
-class Singleton1
+class HSingleton
 {
 public:
-    Singleton1* getInstance()
+    static HSingleton* getInstance()
     {
-        return &sm_instance;
+        return &instance_;
     }
-    Singleton1() = default;
-    Singleton1(const Singleton1& rhs) = delete;
-    Singleton1& operator=(const Singleton1& rhs) = delete;
 private:
-    static Singleton1 sm_instance;
+    HSingleton(){}
+    static HSingleton instance_;
 };
-Singleton1 Singleton1::sm_instance;
+HSingleton HSingleton::instance_;
 
-class Singleton2
+class FSingleton
 {
 public:
-    Singleton2* getInstance()
+    static FSingleton* getInstance()
     {
-        if(sm_instance == nullptr)
+        if(instance_ == nullptr)
         {
-            sm_mut.lock();
-            if(sm_instance == nullptr)
+            mut_.lock();
+            if(instance_ == nullptr)
             {
-                sm_instance = new Singleton2();
+                instance_ = new FSingleton();
             }
-            sm_mut.unlock();
+            mut_.unlock();
         }
-        return sm_instance;
+        return instance_;
     }
-
+    
+private:
     class CGarbo
     {
-        public:
+    public:
+        CGarbo(){}
         ~CGarbo()
         {
-            if(sm_instance)
-                delete sm_instance;
+            if(FSingleton::instance_)
+                delete FSingleton::instance_;
         }
     };
-private:
-    static Singleton2* sm_instance;
-    static std::mutex sm_mut;
-    static CGarbo sm_garbo;
+
+    FSingleton(){}
+    static FSingleton* instance_;
+    static CGarbo cgarbo_;
+    static std::mutex mut_;
 };
-Singleton2* Singleton2::sm_instance = nullptr;
-std::mutex Singleton2::sm_mut;
-Singleton2::CGarbo Singleton2::sm_garbo;
-
-#endif //#ifndef SINGLETON_H
-
+FSingleton* FSingleton::instance_ = nullptr;
+FSingleton::CGarbo FSingleton::cgarbo_;
+std::mutex FSingleton::mut_;
